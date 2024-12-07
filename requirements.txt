@@ -1,7 +1,9 @@
-numpy
-scipy
+numpy == 1.26.4
+scipy == 1.13.1
+torch == 2.2.2
+torchvision == 0.17.2
 tqdm
-sklearn
+scikit-learn == 1.5.2
 matplotlib
 tensorflow >= 1.4
 Keras >= 2.1

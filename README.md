@@ -4,18 +4,25 @@ Adversarial Samples from Artifacts](https://arxiv.org/abs/1703.00410)
 (Feinman et al., 2017).
 
 ## Requirements & Setup
-This code repository requires Keras > 2.0 and TensorFlow. Keras must be
-configured to use TensorFlow backend. A full list of requirements can be found
-in `requirements.txt`. To install, run the following command to clone the
-repository into a folder of your choice:
+To install, 
+You can run the following command:
+to clone the repository into a folder of your choice:
 
-    git clone https://github.com/rfeinman/detecting-adversarial-samples.git
+    git clone https://github.com/FuadAhmad/artifacts.git
 
-On UNIX machines, after cloning this repository, it is
-recommended that you add the path to the repository to your `PYTHONPATH`
-environment variable to enable imports from any folder:
+To create an environment (name : 'nids'):
 
-    export PYTHONPATH="/path/to/detecting-adversarial-samples:$PYTHONPATH"
+    conda create -n nids python=3.9.20
+
+ To activate the environment:
+
+    conda activate nids 
+
+A full list of requirements can be found
+in `requirements.txt`. To install, 
+
+    pip install -r requirements.txt
+
 
 
 ## Code Structure

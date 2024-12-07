@@ -1,7 +1,8 @@
 from __future__ import division, absolute_import, print_function
 
 import argparse
-
+import sys
+sys.path.append('../')  # Add the parent directory to the Python path
 from detect.util import get_data, get_model
 
 

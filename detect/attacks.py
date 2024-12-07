@@ -5,8 +5,10 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from cleverhans.utils import other_classes
-from cleverhans.utils_tf import batch_eval, model_argmax
-from cleverhans.attacks import SaliencyMapMethod
+#from cleverhans.utils_tf import batch_eval, model_argmax
+#from cleverhans.attacks import SaliencyMapMethod
+#from cleverhans.tf2.attacks.projected_gradient_descent import projected_gradient_descent
+from cleverhans.tf2.attacks.fast_gradient_method import fast_gradient_method
 
 
 def fgsm(x, predictions, eps, clip_min=None, clip_max=None, y=None):
@@ -55,7 +57,7 @@ def fgsm(x, predictions, eps, clip_min=None, clip_max=None, y=None):
 
     return adv_x
 
-def fast_gradient_sign_method(sess, model, X, Y, eps, clip_min=None,
+def fast_gradient_sign_method(model, X, Y, eps, clip_min=None,
                               clip_max=None, batch_size=256):
     """
     TODO
@@ -68,7 +70,7 @@ def fast_gradient_sign_method(sess, model, X, Y, eps, clip_min=None,
     :param clip_max:
     :param batch_size:
     :return:
-    """
+    
     # Define TF placeholders for the input and output
     x = tf.placeholder(tf.float32, shape=(None,) + X.shape[1:])
     y = tf.placeholder(tf.float32, shape=(None,) + Y.shape[1:])
@@ -81,6 +83,11 @@ def fast_gradient_sign_method(sess, model, X, Y, eps, clip_min=None,
         sess, [x, y], [adv_x],
         [X, Y], args={'batch_size': batch_size}
     )
+    """
+    # Generate the adversarial examples using CleverHans' fast_gradient_method
+    X_adv = fast_gradient_method(model_fn=model, x=X, eps=eps, norm=np.inf)
+    if (clip_min is not None) and (clip_max is not None):
+        X_adv = tf.clip_by_value(X_adv, clip_min, clip_max)
 
     return X_adv
 

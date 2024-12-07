@@ -6,7 +6,8 @@ import numpy as np
 import tensorflow as tf
 import keras.backend as K
 from keras.models import load_model
-
+import sys
+sys.path.append('../')  # Add the parent directory to the Python path
 from detect.util import get_data
 from detect.attacks import (fast_gradient_sign_method, basic_iterative_method,
                             saliency_map_method)
@@ -19,7 +20,7 @@ ATTACK_PARAMS = {
 }
 
 
-def craft_one_type(sess, model, X, Y, dataset, attack, batch_size):
+def craft_one_type(model, X, Y, dataset, attack, batch_size):
     """
     TODO
     :param sess:
@@ -35,14 +36,14 @@ def craft_one_type(sess, model, X, Y, dataset, attack, batch_size):
         # FGSM attack
         print('Crafting fgsm adversarial samples...')
         X_adv = fast_gradient_sign_method(
-            sess, model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'], clip_min=0.,
+            model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'], clip_min=0.,
             clip_max=1., batch_size=batch_size
         )
     elif attack in ['bim-a', 'bim-b']:
         # BIM attack
         print('Crafting %s adversarial samples...' % attack)
         its, results = basic_iterative_method(
-            sess, model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'],
+            model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'],
             eps_iter=ATTACK_PARAMS[dataset]['eps_iter'], clip_min=0.,
             clip_max=1., batch_size=batch_size
         )
@@ -59,7 +60,7 @@ def craft_one_type(sess, model, X, Y, dataset, attack, batch_size):
         # JSMA attack
         print('Crafting jsma adversarial samples. This may take a while...')
         X_adv = saliency_map_method(
-            sess, model, X, Y, theta=1, gamma=0.1, clip_min=0., clip_max=1.
+            model, X, Y, theta=1, gamma=0.1, clip_min=0., clip_max=1.
         )
     else:
         # TODO: CW attack
@@ -80,9 +81,9 @@ def main(args):
         'model file not found... must first train model using train_model.py.'
     print('Dataset: %s. Attack: %s' % (args.dataset, args.attack))
     # Create TF session, set it as Keras backend
-    sess = tf.Session()
-    K.set_session(sess)
-    K.set_learning_phase(0)
+    #sess = tf.Session()
+    #K.set_session(sess)
+    #K.set_learning_phase(0)
     model = load_model('../data/model_%s.h5' % args.dataset)
     _, _, X_test, Y_test = get_data(args.dataset)
     _, acc = model.evaluate(X_test, Y_test, batch_size=args.batch_size,
@@ -91,14 +92,14 @@ def main(args):
     if args.attack == 'all':
         # Cycle through all attacks
         for attack in ['fgsm', 'bim-a', 'bim-b', 'jsma', 'cw']:
-            craft_one_type(sess, model, X_test, Y_test, args.dataset, attack,
+            craft_one_type(model, X_test, Y_test, args.dataset, attack,
                            args.batch_size)
     else:
         # Craft one specific attack type
-        craft_one_type(sess, model, X_test, Y_test, args.dataset, args.attack,
+        craft_one_type(model, X_test, Y_test, args.dataset, args.attack,
                        args.batch_size)
     print('Adversarial samples crafted and saved to data/ subfolder.')
-    sess.close()
+    #sess.close()
 
 
 if __name__ == "__main__":

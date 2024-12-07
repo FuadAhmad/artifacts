@@ -13,7 +13,8 @@ from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import scale
 import keras.backend as K
 from keras.datasets import mnist, cifar10
-from keras.utils import np_utils
+#from keras.utils import np_utils
+from tensorflow.keras.utils import to_categorical
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
@@ -78,8 +79,8 @@ def get_data(dataset='mnist'):
     X_test /= 255
 
     # one-hot-encode the labels
-    Y_train = np_utils.to_categorical(y_train, 10)
-    Y_test = np_utils.to_categorical(y_test, 10)
+    Y_train = to_categorical(y_train, 10)
+    Y_test = to_categorical(y_test, 10)
 
     print(X_train.shape)
     print(Y_train.shape)
