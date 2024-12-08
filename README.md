@@ -89,8 +89,11 @@ trained on these features and the detector is built.
 
 ## MNIST Demonstration
 Here, a simple demonstration is provided of the commands issued to run the full
-experiment with MNIST, using the FGSM attack. The following commands are used
-to run all 3 steps:
+experiment with MNIST, using the FGSM attack. 
+Run 
+    'bash mnist_fgsm.sh' 
+    
+OR following 3 commands:
 
     1. python train_model.py -d=mnist -e=10
     2. python craft_adv_samples.py -d=mnist -a=fgsm

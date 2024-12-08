@@ -15,6 +15,7 @@ import keras.backend as K
 from keras.datasets import mnist, cifar10
 #from keras.utils import np_utils
 from tensorflow.keras.utils import to_categorical
+import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
@@ -234,18 +235,17 @@ def get_mc_predictions(model, X, nb_iter=50, batch_size=256):
     :param batch_size:
     :return:
     """
-    output_dim = model.layers[-1].output.shape[-1].value
-    get_output = K.function(
-        [model.layers[0].input, K.learning_phase()],
-        [model.layers[-1].output]
-    )
+    output_dim = model.layers[-1].output.shape[-1]#.value
+    #get_output = K.function([model.layers[0].input, K.learning_phase()], [model.layers[-1].output])
+    intermediate_model = tf.keras.Model(inputs=model.layers[0].input, outputs=model.layers[-1].output)
 
     def predict():
         n_batches = int(np.ceil(X.shape[0] / float(batch_size)))
         output = np.zeros(shape=(len(X), output_dim))
         for i in range(n_batches):
             output[i * batch_size:(i + 1) * batch_size] = \
-                get_output([X[i * batch_size:(i + 1) * batch_size], 1])[0]
+                intermediate_model(X[i * batch_size:(i + 1) * batch_size], training=True)
+                #model(X[i * batch_size:(i + 1) * batch_size], training=True) #get_output([X[i * batch_size:(i + 1) * batch_size], 1])[0]
         return output
 
     preds_mc = []
@@ -264,17 +264,19 @@ def get_deep_representations(model, X, batch_size=256):
     :return:
     """
     # last hidden layer is always at index -4
-    output_dim = model.layers[-4].output.shape[-1].value
-    get_encoding = K.function(
-        [model.layers[0].input, K.learning_phase()],
-        [model.layers[-4].output]
-    )
+    output_dim = model.layers[-4].output.shape[-1]#.value
+    #get_encoding = K.function([model.layers[0].input, K.learning_phase()], [model.layers[-4].output])
+    # Create a new model to extract intermediate activations
+    intermediate_model = tf.keras.Model(inputs=model.layers[0].input, outputs=model.layers[-4].output)
+
+    # Get the activations for a given input
+    #intermediate_output = intermediate_model.predict(input_data)
 
     n_batches = int(np.ceil(X.shape[0] / float(batch_size)))
     output = np.zeros(shape=(len(X), output_dim))
     for i in range(n_batches):
         output[i * batch_size:(i + 1) * batch_size] = \
-            get_encoding([X[i * batch_size:(i + 1) * batch_size], 0])[0]
+            intermediate_model.predict(X[i * batch_size:(i + 1) * batch_size])#get_encoding([X[i * batch_size:(i + 1) * batch_size], 0])[0]
 
     return output
 

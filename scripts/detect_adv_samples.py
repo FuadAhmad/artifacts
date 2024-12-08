@@ -6,7 +6,8 @@ import warnings
 import numpy as np
 from sklearn.neighbors import KernelDensity
 from keras.models import load_model
-
+import sys
+sys.path.append('../')  # Add the parent directory to the Python path
 from detect.util import (get_data, get_noisy_samples, get_mc_predictions,
                          get_deep_representations, score_samples, normalize,
                          train_lr, compute_roc)
@@ -64,8 +65,9 @@ def main(args):
                   (s_type, l2_diff))
     # Refine the normal, noisy and adversarial sets to only include samples for
     # which the original version was correctly classified by the model
-    preds_test = model.predict_classes(X_test, verbose=0,
-                                       batch_size=args.batch_size)
+    #preds_test = model.predict_classes(X_test, verbose=0, batch_size=args.batch_size)
+    predictions = model.predict(X_test)
+    preds_test = np.argmax(predictions, axis=1)
     inds_correct = np.where(preds_test == Y_test.argmax(axis=1))[0]
     X_test = X_test[inds_correct]
     X_test_noisy = X_test_noisy[inds_correct]
@@ -73,27 +75,16 @@ def main(args):
 
     ## Get Bayesian uncertainty scores
     print('Getting Monte Carlo dropout variance predictions...')
-    uncerts_normal = get_mc_predictions(model, X_test,
-                                        batch_size=args.batch_size) \
-        .var(axis=0).mean(axis=1)
-    uncerts_noisy = get_mc_predictions(model, X_test_noisy,
-                                       batch_size=args.batch_size) \
-        .var(axis=0).mean(axis=1)
-    uncerts_adv = get_mc_predictions(model, X_test_adv,
-                                     batch_size=args.batch_size) \
-        .var(axis=0).mean(axis=1)
-
+    uncerts_normal = get_mc_predictions(model, X_test, batch_size=args.batch_size).var(axis=0).mean(axis=1)
+    uncerts_noisy = get_mc_predictions(model, X_test_noisy, batch_size=args.batch_size).var(axis=0).mean(axis=1)
+    uncerts_adv = get_mc_predictions(model, X_test_adv, batch_size=args.batch_size).var(axis=0).mean(axis=1)
     ## Get KDE scores
     # Get deep feature representations
     print('Getting deep feature representations...')
-    X_train_features = get_deep_representations(model, X_train,
-                                                batch_size=args.batch_size)
-    X_test_normal_features = get_deep_representations(model, X_test,
-                                                      batch_size=args.batch_size)
-    X_test_noisy_features = get_deep_representations(model, X_test_noisy,
-                                                     batch_size=args.batch_size)
-    X_test_adv_features = get_deep_representations(model, X_test_adv,
-                                                   batch_size=args.batch_size)
+    X_train_features = get_deep_representations(model, X_train, batch_size=args.batch_size)
+    X_test_normal_features = get_deep_representations(model, X_test, batch_size=args.batch_size)
+    X_test_noisy_features = get_deep_representations(model, X_test_noisy, batch_size=args.batch_size)
+    X_test_adv_features = get_deep_representations(model, X_test_adv, batch_size=args.batch_size)
     # Train one KDE per class
     print('Training KDEs...')
     class_inds = {}
@@ -110,12 +101,13 @@ def main(args):
             .fit(X_train_features[class_inds[i]])
     # Get model predictions
     print('Computing model predictions...')
-    preds_test_normal = model.predict_classes(X_test, verbose=0,
-                                              batch_size=args.batch_size)
-    preds_test_noisy = model.predict_classes(X_test_noisy, verbose=0,
-                                             batch_size=args.batch_size)
-    preds_test_adv = model.predict_classes(X_test_adv, verbose=0,
-                                           batch_size=args.batch_size)
+    #preds_test_normal = model.predict_classes(X_test, verbose=0, batch_size=args.batch_size)
+    #preds_test_noisy = model.predict_classes(X_test_noisy, verbose=0, batch_size=args.batch_size)
+    #preds_test_adv = model.predict_classes(X_test_adv, verbose=0, batch_size=args.batch_size)
+    preds_test_normal = np.argmax(model.predict(X_test), axis=1)
+    preds_test_noisy = np.argmax(model.predict(X_test_noisy), axis=1)
+    preds_test_adv = np.argmax(model.predict(X_test_adv), axis=1)
+
     # Get density estimates
     print('computing densities...')
     densities_normal = score_samples(
