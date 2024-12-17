@@ -71,10 +71,10 @@ def main(args):
     predictions = model.predict(X_test)
     preds_test = np.argmax(predictions, axis=1)
     #inds_correct = np.where(preds_test == Y_test)[0]# Y_test.argmax(axis=1))[0]
-    if numClass == 2:
-        inds_correct = np.where(preds_test == Y_test)[0]
-    else:
-        inds_correct = np.where(preds_test == Y_test.argmax(axis=1))[0]
+    #if numClass == 2:
+    #    inds_correct = np.where(preds_test == Y_test)[0]
+    #else:
+    inds_correct = np.where(preds_test == Y_test.argmax(axis=1))[0]
     X_test = X_test[inds_correct]
     X_test_noisy = X_test_noisy[inds_correct]
     X_test_adv = X_test_adv[inds_correct]
@@ -94,29 +94,29 @@ def main(args):
     # Train one KDE per class
     print('Training KDEs...')
     class_inds = {}
-    if numClass == 2:
+    '''if numClass == 2:
         class_inds = {
             0: np.where(Y_train == 0)[0],
             1: np.where(Y_train == 1)[0]
         }
-    else:
-        for i in range(Y_train.shape[1]):
-            class_inds[i] = np.where(Y_train.argmax(axis=1) == i)[0]
+    else:'''
+    for i in range(Y_train.shape[1]):
+        class_inds[i] = np.where(Y_train.argmax(axis=1) == i)[0]
     kdes = {}
     warnings.warn("Using pre-set kernel bandwidths that were determined "
                   "optimal for the specific CNN models of the paper. If you've "
                   "changed your model, you'll need to re-optimize the "
                   "bandwidth.")
     
-    if numClass == 2:
+    '''if numClass == 2:
         for i in np.unique(Y_train):
             kdes[i] = KernelDensity(kernel='gaussian', bandwidth=BANDWIDTHS[args.dataset]) \
                     .fit(X_train_features[class_inds[i]])
-    else:
-        for i in range(Y_train.shape[1]):
-            kdes[i] = KernelDensity(kernel='gaussian',
-                                    bandwidth=BANDWIDTHS[args.dataset]) \
-                .fit(X_train_features[class_inds[i]])
+    else:'''
+    for i in range(Y_train.shape[1]):
+        kdes[i] = KernelDensity(kernel='gaussian',
+                                bandwidth=BANDWIDTHS[args.dataset]) \
+            .fit(X_train_features[class_inds[i]])
     # Get model predictions
     print('Computing model predictions...')
     #preds_test_normal = model.predict_classes(X_test, verbose=0, batch_size=args.batch_size)
