@@ -13,11 +13,11 @@ from detect.util import (get_data, get_noisy_samples, get_mc_predictions,
                          train_lr, compute_roc)
 
 # Optimal KDE bandwidths that were determined from CV tuning
-BANDWIDTHS = {'mnist': 1.20, 'cifar': 0.26, 'svhn': 1.00}
+BANDWIDTHS = {'mnist': 1.20, 'cifar': 0.26, 'svhn': 1.00, 'nsl': 1.00}
 
 
 def main(args):
-    assert args.dataset in ['mnist', 'cifar', 'svhn'], \
+    assert args.dataset in ['mnist', 'cifar', 'svhn', 'nsl'], \
         "Dataset parameter must be either 'mnist', 'cifar' or 'svhn'"
     assert args.attack in ['fgsm', 'bim-a', 'bim-b', 'jsma', 'cw', 'all'], \
         "Attack parameter must be either 'fgsm', 'bim-a', 'bim-b', " \
@@ -33,6 +33,8 @@ def main(args):
     model = load_model('../data/model_%s.h5' % args.dataset)
     # Load the dataset
     X_train, Y_train, X_test, Y_test = get_data(args.dataset)
+    numClass = len(np.unique(Y_train))
+    #print("--------------number of class label: ", numClass)
     # Check attack type, select adversarial and noisy samples accordingly
     print('Loading noisy and adversarial samples...')
     if args.attack == 'all':
@@ -68,7 +70,11 @@ def main(args):
     #preds_test = model.predict_classes(X_test, verbose=0, batch_size=args.batch_size)
     predictions = model.predict(X_test)
     preds_test = np.argmax(predictions, axis=1)
-    inds_correct = np.where(preds_test == Y_test.argmax(axis=1))[0]
+    #inds_correct = np.where(preds_test == Y_test)[0]# Y_test.argmax(axis=1))[0]
+    if numClass == 2:
+        inds_correct = np.where(preds_test == Y_test)[0]
+    else:
+        inds_correct = np.where(preds_test == Y_test.argmax(axis=1))[0]
     X_test = X_test[inds_correct]
     X_test_noisy = X_test_noisy[inds_correct]
     X_test_adv = X_test_adv[inds_correct]
@@ -88,17 +94,29 @@ def main(args):
     # Train one KDE per class
     print('Training KDEs...')
     class_inds = {}
-    for i in range(Y_train.shape[1]):
-        class_inds[i] = np.where(Y_train.argmax(axis=1) == i)[0]
+    if numClass == 2:
+        class_inds = {
+            0: np.where(Y_train == 0)[0],
+            1: np.where(Y_train == 1)[0]
+        }
+    else:
+        for i in range(Y_train.shape[1]):
+            class_inds[i] = np.where(Y_train.argmax(axis=1) == i)[0]
     kdes = {}
     warnings.warn("Using pre-set kernel bandwidths that were determined "
                   "optimal for the specific CNN models of the paper. If you've "
                   "changed your model, you'll need to re-optimize the "
                   "bandwidth.")
-    for i in range(Y_train.shape[1]):
-        kdes[i] = KernelDensity(kernel='gaussian',
-                                bandwidth=BANDWIDTHS[args.dataset]) \
-            .fit(X_train_features[class_inds[i]])
+    
+    if numClass == 2:
+        for i in np.unique(Y_train):
+            kdes[i] = KernelDensity(kernel='gaussian', bandwidth=BANDWIDTHS[args.dataset]) \
+                    .fit(X_train_features[class_inds[i]])
+    else:
+        for i in range(Y_train.shape[1]):
+            kdes[i] = KernelDensity(kernel='gaussian',
+                                    bandwidth=BANDWIDTHS[args.dataset]) \
+                .fit(X_train_features[class_inds[i]])
     # Get model predictions
     print('Computing model predictions...')
     #preds_test_normal = model.predict_classes(X_test, verbose=0, batch_size=args.batch_size)

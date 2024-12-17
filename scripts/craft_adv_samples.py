@@ -16,7 +16,8 @@ from detect.attacks import (fast_gradient_sign_method, basic_iterative_method,
 ATTACK_PARAMS = {
     'mnist': {'eps': 0.300, 'eps_iter': 0.010},
     'cifar': {'eps': 0.050, 'eps_iter': 0.005},
-    'svhn': {'eps': 0.130, 'eps_iter': 0.010}
+    'svhn': {'eps': 0.130, 'eps_iter': 0.010},
+    'nsl': {'eps': 0.130, 'eps_iter': 0.010}
 }
 
 
@@ -72,7 +73,7 @@ def craft_one_type(model, X, Y, dataset, attack, batch_size):
 
 
 def main(args):
-    assert args.dataset in ['mnist', 'cifar', 'svhn'], \
+    assert args.dataset in ['mnist', 'cifar', 'svhn', 'nsl'], \
         "Dataset parameter must be either 'mnist', 'cifar' or 'svhn'"
     assert args.attack in ['fgsm', 'bim-a', 'bim-b', 'jsma', 'cw', 'all'], \
         "Attack parameter must be either 'fgsm', 'bim-a', 'bim-b', " \

@@ -4,23 +4,23 @@ import argparse
 import sys
 sys.path.append('../')  # Add the parent directory to the Python path
 from detect.util import get_data, get_model
+import numpy as np
 
 
 def main(args):
-    assert args.dataset in ['mnist', 'cifar', 'svhn'], \
-        "dataset parameter must be either 'mnist', 'cifar' or 'svhn'"
+    assert args.dataset in ['mnist', 'cifar', 'svhn', 'nsl'], \
+        "dataset parameter must be either 'mnist', 'cifar' or 'svhn' OR 'nsl'"
     print('Data set: %s' % args.dataset)
     X_train, Y_train, X_test, Y_test = get_data(args.dataset)
-    model = get_model(args.dataset)
-    model.compile(
-        loss='categorical_crossentropy',
-        optimizer='adadelta',
-        metrics=['accuracy']
-    )
-    model.fit(
-        X_train, Y_train,
-        epochs=args.epochs,
-        batch_size=args.batch_size,
+    nClass = len(np.unique(Y_train))
+    model = get_model(args.dataset, nClass)
+    #if nClass == 2:
+    #model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']) # For binary classification)
+    #else:
+    model.compile(loss='categorical_crossentropy',optimizer='adadelta',metrics=['accuracy'])
+    
+    #model.fit(X_train, Y_train, epochs=args.epochs, batch_size=args.batch_size, validation_data=(X_test, Y_test))
+    model.fit( X_train, Y_train, epochs=args.epochs, batch_size=args.batch_size,
         shuffle=True,
         verbose=1,
         validation_data=(X_test, Y_test)
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-d', '--dataset',
-        help="Dataset to use; either 'mnist', 'cifar' or 'svhn'",
+        help="Dataset to use; either 'mnist', 'cifar' or 'svhn' OR 'nsl'",
         required=True, type=str
     )
     parser.add_argument(

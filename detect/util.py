@@ -10,7 +10,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.preprocessing import scale
+from sklearn.preprocessing import scale, StandardScaler
+from sklearn.model_selection import train_test_split
 import keras.backend as K
 from keras.datasets import mnist, cifar10
 #from keras.utils import np_utils
@@ -21,16 +22,22 @@ from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras.regularizers import l2
 
+import sys
+sys.path.append('../')  # Add the parent directory to the Python path
+import pandas as pd
+
 # Gaussian noise scale sizes that were determined so that the average
 # L-2 perturbation size is equal to that of the adversarial samples
 STDEVS = {
     'mnist': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265},
     'cifar': {'fgsm': 0.050, 'bim-a': 0.009, 'bim-b': 0.039},
-    'svhn': {'fgsm': 0.132, 'bim-a': 0.015, 'bim-b': 0.122}
+    'svhn': {'fgsm': 0.132, 'bim-a': 0.015, 'bim-b': 0.122},
+    'nsl': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265}
 }
 # Set random seed
 np.random.seed(0)
 
+nClass=10
 
 def get_data(dataset='mnist'):
     """
@@ -38,17 +45,35 @@ def get_data(dataset='mnist'):
     :param dataset:
     :return:
     """
-    assert dataset in ['mnist', 'cifar', 'svhn'], \
-        "dataset parameter must be either 'mnist' 'cifar' or 'svhn'"
+    assert dataset in ['mnist', 'cifar', 'svhn', 'nsl'], \
+        "dataset parameter must be either 'mnist' 'cifar' or 'svhn' OR 'nsl'"
+    
+    if dataset == 'nsl':
+
+        file_path = "../data/nsl/"
+        df = pd.read_csv(file_path+"test.csv")
+        y = df["attack"]
+        X = df.drop(["attack"], axis=1)
+        X_train, X_test, Y_train, Y_test = train_test_split(X, y,test_size=0.2)
+        
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test) 
+        nClass = len(np.unique(Y_train))
+        #return X_train, Y_train, X_test, Y_test # Binary loss='binary_crossentropy' optimizer='adam', 
+        return X_train, to_categorical(Y_train, nClass), X_test, to_categorical(Y_test, nClass)
+    
     if dataset == 'mnist':
         # the data, shuffled and split between train and test sets
         (X_train, y_train), (X_test, y_test) = mnist.load_data()
         # reshape to (n_samples, 28, 28, 1)
         X_train = X_train.reshape(-1, 28, 28, 1)
         X_test = X_test.reshape(-1, 28, 28, 1)
+        nClass = len(np.unique(y_train))
     elif dataset == 'cifar':
         # the data, shuffled and split between train and test sets
         (X_train, y_train), (X_test, y_test) = cifar10.load_data()
+        nClass = len(np.unique(y_train))
     else:
         if not os.path.isfile("../data/svhn_train.mat"):
             print('Downloading SVHN train set...')
@@ -80,8 +105,8 @@ def get_data(dataset='mnist'):
     X_test /= 255
 
     # one-hot-encode the labels
-    Y_train = to_categorical(y_train, 10)
-    Y_test = to_categorical(y_test, 10)
+    Y_train = to_categorical(y_train, nClass)
+    Y_test = to_categorical(y_test, nClass)
 
     print(X_train.shape)
     print(Y_train.shape)
@@ -91,7 +116,7 @@ def get_data(dataset='mnist'):
     return X_train, Y_train, X_test, Y_test
 
 
-def get_model(dataset='mnist'):
+def get_model(dataset='mnist', nClass = 2):
     """
     Takes in a parameter indicating which model type to use ('mnist',
     'cifar' or 'svhn') and returns the appropriate Keras model.
@@ -99,9 +124,26 @@ def get_model(dataset='mnist'):
                     a model for.
     :return: The model; a Keras 'Sequential' instance.
     """
-    assert dataset in ['mnist', 'cifar', 'svhn'], \
+    assert dataset in ['mnist', 'cifar', 'svhn', 'nsl'], \
         "dataset parameter must be either 'mnist' 'cifar' or 'svhn'"
-    if dataset == 'mnist':
+    if dataset == 'nsl':
+        # model for NSL KDD dataset 
+        
+        model = Sequential([
+            Dense(64, input_dim=42, activation='relu'),
+            Dense(128, activation='relu'),
+            # Dropout(0.5),  # Uncomment for dropout
+            Dense(64, activation='relu'),
+            # Dropout(0.5),  # Uncomment for dropout  
+        ])
+        #if nClass == 2:
+        #model.add(Dense(1, activation='sigmoid'))  # For binary classification)
+        #else:
+        model.add(Dense(nClass, activation='softmax'))
+            
+        return model
+    
+    elif dataset == 'mnist':
         # MNIST model
         layers = [
             Conv2D(64, (3, 3), padding='valid', input_shape=(28, 28, 1)),
