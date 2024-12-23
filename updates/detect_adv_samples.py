@@ -19,7 +19,7 @@ BANDWIDTHS = {'mnist': 1.20, 'cifar': 0.26, 'svhn': 1.00, 'nsl': 1.00}
 def main(args):
     assert args.dataset in ['mnist', 'cifar', 'svhn', 'nsl'], \
         "Dataset parameter must be either 'mnist', 'cifar' or 'svhn'"
-    assert args.attack in ['fgsm', 'bim-a', 'bim-b', 'jsma', 'cw', 'all'], \
+    assert args.attack in ['fgsm', 'bim-a', 'bim-b', 'jsma', 'cw', 'all', 'pgd'], \
         "Attack parameter must be either 'fgsm', 'bim-a', 'bim-b', " \
         "'jsma' or 'cw'"
     assert os.path.isfile('../data/model_%s.h5' % args.dataset), \
@@ -47,8 +47,8 @@ def main(args):
         X_test_adv = np.load('../data/Adv_%s_%s.npy' % (args.dataset,
                                                         args.attack))
         # Craft an equal number of noisy samples
-        X_test_noisy = get_noisy_samples(X_test, X_test_adv, args.dataset,
-                                         args.attack)
+        X_test_noisy = get_noisy_samples(X_test, X_test_adv, args.dataset, args.attack)
+        
     # Check model accuracies on each sample type
     for s_type, dataset in zip(['normal', 'noisy', 'adversarial'],
                                [X_test, X_test_noisy, X_test_adv]):

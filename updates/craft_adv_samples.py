@@ -8,7 +8,7 @@ import keras.backend as K
 from keras.models import load_model
 import sys
 sys.path.append('../')  # Add the parent directory to the Python path
-from util import get_data
+from util import get_data, keep_features
 from attacks import (fast_gradient_sign_method, basic_iterative_method,
                             saliency_map_method, pgd_attack)
 
@@ -41,11 +41,7 @@ def craft_one_type(model, X, Y, dataset, attack, batch_size):
             X_adv = fast_gradient_sign_method(
                     model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'], batch_size=batch_size)
             X_adv = np.array(X_adv)
-            for i in range(len(X)):
-                X_adv[i][1] = X[i][1]
-                X_adv[i][2] = X[i][2]
-                X_adv[i][3] = X[i][3]
-            print(type(X_adv))
+            X_adv = keep_features([1,2,3], X, X_adv)
         else:
             X_adv = fast_gradient_sign_method(
             model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'], clip_min=0.,
@@ -59,10 +55,8 @@ def craft_one_type(model, X, Y, dataset, attack, batch_size):
             X_adv = pgd_attack(
                     model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'], batch_size=batch_size)
             X_adv = np.array(X_adv)
-            for i in range(len(X)):
-                X_adv[i][1] = X[i][1]
-                X_adv[i][2] = X[i][2]
-                X_adv[i][3] = X[i][3]
+            X_adv = keep_features([1,2,3], X, X_adv)
+            
 
     elif attack in ['bim-a', 'bim-b']:
         # BIM attack

@@ -32,7 +32,7 @@ STDEVS = {
     'mnist': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265},
     'cifar': {'fgsm': 0.050, 'bim-a': 0.009, 'bim-b': 0.039},
     'svhn': {'fgsm': 0.132, 'bim-a': 0.015, 'bim-b': 0.122},
-    'nsl': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265}
+    'nsl': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265, 'pgd':0.7}
 }
 # Set random seed
 np.random.seed(0)
@@ -264,9 +264,17 @@ def get_noisy_samples(X_test, X_test_adv, dataset, attack):
             ),
             1
         )
-
+    if dataset in ['nsl']:
+        print("keep features..........4 ....nsl")
+        X_test_noisy = keep_features([1,2,3], X_test, X_test_noisy)
     return X_test_noisy
 
+
+def keep_features(unchange_feature_indexes, X, craftedX):
+    for i in range(len(X)):
+        for indx in unchange_feature_indexes:
+            craftedX[i][indx] = X[i][indx]
+    return craftedX
 
 def get_mc_predictions(model, X, nb_iter=50, batch_size=256):
     """
