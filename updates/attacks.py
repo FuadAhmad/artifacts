@@ -9,6 +9,7 @@ from cleverhans.utils import other_classes
 #from cleverhans.attacks import SaliencyMapMethod
 from cleverhans.tf2.attacks.projected_gradient_descent import projected_gradient_descent
 from cleverhans.tf2.attacks.fast_gradient_method import fast_gradient_method
+from cleverhans.tf2.attacks.carlini_wagner_l2 import carlini_wagner_l2
 
 
 def fgsm(x, predictions, eps, clip_min=None, clip_max=None, y=None):
@@ -91,8 +92,7 @@ def fast_gradient_sign_method(model, X, Y, eps, clip_min=None,
 
     return X_adv
 
-def pgd_attack(model, X, Y, eps, clip_min=None,
-                              clip_max=None, batch_size=256):
+def pgd_attack(model, X, Y, eps, clip_min=None, clip_max=None, batch_size=256):
     # Generate the adversarial examples using CleverHans' projected_gradient_descent
     #X_adv = projected_gradient_descent(model, x, FLAGS.eps, 0.01, 40, np.inf)
     X_adv = projected_gradient_descent(model_fn=model, x=X, eps=eps, eps_iter=0.01, nb_iter=40, norm=np.inf)
@@ -101,7 +101,13 @@ def pgd_attack(model, X, Y, eps, clip_min=None,
 
     return X_adv
 
+def cw_attack(model, X, Y, eps, clip_min=None, clip_max=None, batch_size=256): 
+    # Generate the adversarial examples using CleverHans' carlini_wagner_l2(model_fn, x, **kwargs)
+    X_adv = carlini_wagner_l2(model, X, clip_min=clip_min, clip_max=clip_max,)
+    if (clip_min is not None) and (clip_max is not None):
+        X_adv = tf.clip_by_value(X_adv, clip_min, clip_max)
 
+    return X_adv
     
 def basic_iterative_method(sess, model, X, Y, eps, eps_iter, nb_iter=50,
                            clip_min=None, clip_max=None, batch_size=256):

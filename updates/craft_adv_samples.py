@@ -10,7 +10,7 @@ import sys
 sys.path.append('../')  # Add the parent directory to the Python path
 from util import get_data, keep_features
 from attacks import (fast_gradient_sign_method, basic_iterative_method,
-                            saliency_map_method, pgd_attack)
+                            saliency_map_method, pgd_attack, cw_attack)
 
 # FGSM & BIM attack parameters that were chosen
 ATTACK_PARAMS = {
@@ -56,7 +56,16 @@ def craft_one_type(model, X, Y, dataset, attack, batch_size):
                     model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'], batch_size=batch_size)
             X_adv = np.array(X_adv)
             X_adv = keep_features([1,2,3], X, X_adv)
-            
+    elif attack == 'cw':
+        # CW attack
+        print('Crafting CW adversarial samples...')
+        if dataset in ['nsl']:
+            print('................................... for NSL Dataset')# clip_min=-np.inf, clip_max=np.inf,
+            X_adv = cw_attack(
+                    model, X, Y, eps=ATTACK_PARAMS[dataset]['eps'], clip_min=-400.0, clip_max=400.0, batch_size=batch_size)
+            X_adv = np.array(X_adv)#
+            #
+            X_adv = keep_features([1,2,3], X, X_adv)
 
     elif attack in ['bim-a', 'bim-b']:
         # BIM attack
@@ -93,7 +102,7 @@ def craft_one_type(model, X, Y, dataset, attack, batch_size):
 def main(args):
     assert args.dataset in ['mnist', 'cifar', 'svhn', 'nsl'], \
         "Dataset parameter must be either 'mnist', 'cifar' or 'svhn'"
-    assert args.attack in ['fgsm', 'bim-a', 'bim-b', 'jsma', 'cw', 'all', 'pgd'], \
+    assert args.attack in ['fgsm', 'bim-a', 'bim-b', 'jsma', 'cw', 'all', 'pgd', 'cw'], \
         "Attack parameter must be either 'fgsm', 'bim-a', 'bim-b', " \
         "'jsma' or 'cw'"
     assert os.path.isfile('../data/model_%s.h5' % args.dataset), \

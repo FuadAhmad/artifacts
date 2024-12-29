@@ -32,7 +32,7 @@ STDEVS = {
     'mnist': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265},
     'cifar': {'fgsm': 0.050, 'bim-a': 0.009, 'bim-b': 0.039},
     'svhn': {'fgsm': 0.132, 'bim-a': 0.015, 'bim-b': 0.122},
-    'nsl': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265, 'pgd':0.7}
+    'nsl': {'fgsm': 0.310, 'bim-a': 0.128, 'bim-b': 0.265, 'pgd':0.310}
 }
 # Set random seed
 np.random.seed(0)
@@ -51,11 +51,15 @@ def get_data(dataset='mnist'):
     if dataset == 'nsl':
 
         file_path = "../data/nsl/"
-        df = pd.read_csv(file_path+"test.csv")
-        y = df["attack"]
-        X = df.drop(["attack"], axis=1)
-        X_train, X_test, Y_train, Y_test = train_test_split(X, y,test_size=0.2)
+        df = pd.read_csv(file_path+"train.csv")
+        Y_train = df["attack"]
+        X_train = df.drop(["attack"], axis=1)
         
+        df = pd.read_csv(file_path+"test.csv")
+        Y_test = df["attack"]
+        X_test = df.drop(["attack"], axis=1)
+        #X_train, X_test, Y_train, Y_test = train_test_split(X, y,test_size=0.2)
+
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test) 
