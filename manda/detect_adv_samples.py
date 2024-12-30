@@ -10,7 +10,7 @@ import sys
 sys.path.append('../')  # Add the parent directory to the Python path
 from util import (get_data, get_noisy_samples, get_mc_predictions,
                          get_deep_representations, score_samples, normalize,
-                         train_lr, compute_roc)
+                         train_lr, compute_roc, random_select, get_neg_values_for_lr, print_performance_metrics, normalize_std)
 
 # Optimal KDE bandwidths that were determined from CV tuning
 BANDWIDTHS = {'mnist': 1.20, 'cifar': 0.26, 'svhn': 1.00, 'nsl': 1.00}
@@ -75,6 +75,12 @@ def main(args):
     #    inds_correct = np.where(preds_test == Y_test)[0]
     #else:
     inds_correct = np.where(preds_test == Y_test.argmax(axis=1))[0]
+    # get clean data
+    #clean_X, clean_Y = get_claen_data(model, X_test, Y_test[inds_correct], X_test_adv)
+    indexs = random_select(len(X_test), len(inds_correct))
+    clean_data = X_test[indexs]
+    print("clean data shape: ", clean_data.shape)
+
     X_test = X_test[inds_correct]
     X_test_noisy = X_test_noisy[inds_correct]
     X_test_adv = X_test_adv[inds_correct]
@@ -84,6 +90,8 @@ def main(args):
     uncerts_normal = get_mc_predictions(model, X_test, batch_size=args.batch_size).var(axis=0).mean(axis=1)
     uncerts_noisy = get_mc_predictions(model, X_test_noisy, batch_size=args.batch_size).var(axis=0).mean(axis=1)
     uncerts_adv = get_mc_predictions(model, X_test_adv, batch_size=args.batch_size).var(axis=0).mean(axis=1)
+    uncerts_clean = get_mc_predictions(model, clean_data, batch_size=args.batch_size).var(axis=0).mean(axis=1)
+
     ## Get KDE scores
     # Get deep feature representations
     print('Getting deep feature representations...')
@@ -91,6 +99,8 @@ def main(args):
     X_test_normal_features = get_deep_representations(model, X_test, batch_size=args.batch_size)
     X_test_noisy_features = get_deep_representations(model, X_test_noisy, batch_size=args.batch_size)
     X_test_adv_features = get_deep_representations(model, X_test_adv, batch_size=args.batch_size)
+    X_test_clean_features = get_deep_representations(model, clean_data, batch_size=args.batch_size)
+
     # Train one KDE per class
     print('Training KDEs...')
     class_inds = {}
@@ -125,6 +135,7 @@ def main(args):
     preds_test_normal = np.argmax(model.predict(X_test), axis=1)
     preds_test_noisy = np.argmax(model.predict(X_test_noisy), axis=1)
     preds_test_adv = np.argmax(model.predict(X_test_adv), axis=1)
+    preds_test_clean = np.argmax(model.predict(clean_data), axis=1)
 
     # Get density estimates
     print('computing densities...')
@@ -143,17 +154,24 @@ def main(args):
         X_test_adv_features,
         preds_test_adv
     )
+    densities_clean = score_samples(
+        kdes,
+        X_test_clean_features,
+        preds_test_clean
+    )
 
     ## Z-score the uncertainty and density values
-    uncerts_normal_z, uncerts_adv_z, uncerts_noisy_z = normalize(
+    uncerts_normal_z, uncerts_adv_z, uncerts_noisy_z, uncerts_clean_z = normalize_std(
         uncerts_normal,
         uncerts_adv,
-        uncerts_noisy
+        uncerts_noisy,
+        uncerts_clean
     )
-    densities_normal_z, densities_adv_z, densities_noisy_z = normalize(
+    densities_normal_z, densities_adv_z, densities_noisy_z, densities_clean_z = normalize_std(
         densities_normal,
         densities_adv,
-        densities_noisy
+        densities_noisy,
+        densities_clean
     )
 
     ## Build detector
@@ -163,8 +181,20 @@ def main(args):
         uncerts_pos=uncerts_adv_z,
         uncerts_neg=np.concatenate((uncerts_normal_z, uncerts_noisy_z))
     )
-
+    
     ## Evaluate detector
+
+    ## Performance on Clean data 
+    vals, labs = get_neg_values_for_lr(densities_clean_z, uncerts_clean_z)
+    acc = lr.score(vals, labs)
+    print("Model accuracy on the purified (remove detect adv) test set: %0.2f%%" % (100 * acc))
+
+    #overall detector performance 
+
+    print('################### Detector Model: Overall Performance ###########################')
+    print_performance_metrics(lr, values, labels)
+    
+
     # Compute logistic regression model predictions
     probs = lr.predict_proba(values)[:, 1]
     # Compute AUC
