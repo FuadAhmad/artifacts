@@ -27,6 +27,7 @@ import sys
 sys.path.append('../')  # Add the parent directory to the Python path
 import pandas as pd
 import random
+from sklearn.neighbors import KernelDensity
 
 
 # Gaussian noise scale sizes that were determined so that the average
@@ -312,7 +313,7 @@ def get_mc_predictions(model, X, nb_iter=50, batch_size=256):
     return np.asarray(preds_mc)
 
 
-def get_deep_representations(model, X, batch_size=256):
+def get_deep_representations(model, X, batch_size=256, last_hidden_layer = -4):
     """
     TODO
     :param model:
@@ -321,10 +322,10 @@ def get_deep_representations(model, X, batch_size=256):
     :return:
     """
     # last hidden layer is always at index -4
-    output_dim = model.layers[-4].output.shape[-1]#.value
+    output_dim = model.layers[last_hidden_layer].output.shape[-1]#.value
     #get_encoding = K.function([model.layers[0].input, K.learning_phase()], [model.layers[-4].output])
     # Create a new model to extract intermediate activations
-    intermediate_model = tf.keras.Model(inputs=model.layers[0].input, outputs=model.layers[-4].output)
+    intermediate_model = tf.keras.Model(inputs=model.layers[0].input, outputs=model.layers[last_hidden_layer].output)
 
     # Get the activations for a given input
     #intermediate_output = intermediate_model.predict(input_data)
@@ -526,3 +527,49 @@ def get_claen_data(model, X, y, adv_X):
     clean_samples = X[adv_inds]
     labs_clean = y[adv_inds]
     return clean_samples, labs_clean
+
+def get_uncertainties_and_densities(model, X_train, Y_train, X_test, X_test_adv, clean_data, bandwidth=1.0, batch_size = 128):
+    print('Getting -uncertainty- Monte Carlo dropout variance predictions...')
+    uncerts_normal = get_mc_predictions(model, X_test, batch_size=batch_size).var(axis=0).mean(axis=1)
+    uncerts_adv = get_mc_predictions(model, X_test_adv, batch_size=batch_size).var(axis=0).mean(axis=1)
+    uncerts_clean = get_mc_predictions(model, clean_data, batch_size=batch_size).var(axis=0).mean(axis=1)
+
+    print('Getting deep feature representations...')
+    X_train_features = get_deep_representations(model, X_train, batch_size=batch_size, last_hidden_layer = -2)
+    X_test_normal_features = get_deep_representations(model, X_test, batch_size=batch_size, last_hidden_layer = -2)
+    X_test_adv_features = get_deep_representations(model, X_test_adv, batch_size=batch_size, last_hidden_layer = -2)
+    X_test_clean_features = get_deep_representations(model, clean_data, batch_size=batch_size, last_hidden_layer = -2)
+
+    numClass = len(np.unique(Y_train))
+    print("--------------number of class label: ", numClass)
+    # Train one KDE per class
+    print('Training KDEs...')
+    class_inds = {}
+    for i in range(Y_train.shape[1]):
+        class_inds[i] = np.where(Y_train.argmax(axis=1) == i)[0]
+
+    kdes = {}
+    for i in range(Y_train.shape[1]):
+        kdes[i] = KernelDensity(kernel='gaussian',
+                                bandwidth=bandwidth) \
+            .fit(X_train_features[class_inds[i]])
+        
+    preds_test_normal = np.argmax(model.predict(X_test), axis=1)
+    preds_test_adv = np.argmax(model.predict(X_test_adv), axis=1)
+    preds_test_clean = np.argmax(model.predict(clean_data), axis=1)
+
+    # Get density estimates
+    print('computing densities estimates...')
+    densities_normal = score_samples(kdes, X_test_normal_features, preds_test_normal)
+    densities_adv = score_samples(kdes, X_test_adv_features, preds_test_adv)
+    densities_clean = score_samples(kdes, X_test_clean_features, preds_test_clean)
+
+    # model, X_train, Y_train, X_test, X_test_adv, clean_data, bandwidth=BANDWIDTHS[args.dataset],
+
+    ## Z-score the uncertainty and density values
+    uncerts_normal_z, uncerts_adv_z, uncerts_clean_z = \
+        normalize(uncerts_normal, uncerts_adv,uncerts_clean)
+    densities_normal_z, densities_adv_z, densities_clean_z = \
+        normalize(densities_normal, densities_adv,densities_clean)
+    
+    return uncerts_normal_z, uncerts_adv_z, uncerts_clean_z, densities_normal_z, densities_adv_z, densities_clean_z
