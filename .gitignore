@@ -4,7 +4,10 @@
 data/
 
 manda/CICIDS2017
+manda/CICIDS2017_00
+manda/CICDDoS2019
 manda/NSLKDD
+manda/UNSW-NB15
 
 ### macOS ###
 *.DS_Store

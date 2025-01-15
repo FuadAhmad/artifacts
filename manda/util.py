@@ -240,7 +240,7 @@ def flip(x, nb_diff):
     return np.reshape(x, original_shape)
 
 
-def get_noisy_samples(X_test, X_test_adv, dataset, attack):
+def get_noisy_samples_ori(X_test, X_test_adv, dataset, attack):
     """
     TODO
     :param X_test:
@@ -513,6 +513,34 @@ def print_performance_metrics(lr, vals, labs):
     cr = metrics.classification_report(labs, y_pred)
     print(f"Classification Report:\n{cr}")
 
+def get_max_min(X_train):
+    mx = []
+    mn = []
+    for x in X_train:
+        mx.append(np.max(x))#mx = np.max(mx, np.max(x))
+        mn.append(np.min(x))
+        #print(np.max(x))
+        #break
+    return np.max(mx), np.min(mn)
+
+def get_noisy_samples(X_test, max_val=1, min_val=0, STDEVS = 0.310):
+    # Add Gaussian noise to the samples
+    X_test_noisy = np.minimum(
+        np.maximum(X_test + np.random.normal(loc=0, scale=STDEVS, size=X_test.shape), min_val),
+        max_val
+    )
+    return X_test_noisy
+
+def get_success_advs(model, samples, true_labels, target=None):
+    preds = model.predict(samples) #model(samples).eval()
+    if target is None:
+        pos1 = np.where(np.argmax(preds, 1) != np.argmax(true_labels, 1))
+    else:
+        pos1 = np.where(np.argmax(preds, 1) == target)
+    x_sel = samples[pos1]
+    y_sel = true_labels[pos1]
+
+    return x_sel, y_sel, pos1
 
 def random_select(max, num):
     lst = [i for i in range(max)]
@@ -559,11 +587,13 @@ def get_uncertainties_and_densities(model, X_train, Y_train, X_test, X_test_adv,
     preds_test_clean = np.argmax(model.predict(clean_data), axis=1)
 
     # Get density estimates
-    print('computing densities estimates...')
+    print('computing densities estimates...: data1', end='...  ')
     densities_normal = score_samples(kdes, X_test_normal_features, preds_test_normal)
+    print('data2', end='...  ')
     densities_adv = score_samples(kdes, X_test_adv_features, preds_test_adv)
+    print('data3', end='...  ')
     densities_clean = score_samples(kdes, X_test_clean_features, preds_test_clean)
-
+    print('done.')
     # model, X_train, Y_train, X_test, X_test_adv, clean_data, bandwidth=BANDWIDTHS[args.dataset],
 
     ## Z-score the uncertainty and density values
@@ -573,3 +603,84 @@ def get_uncertainties_and_densities(model, X_train, Y_train, X_test, X_test_adv,
         normalize(densities_normal, densities_adv,densities_clean)
     
     return uncerts_normal_z, uncerts_adv_z, uncerts_clean_z, densities_normal_z, densities_adv_z, densities_clean_z
+
+
+#only suc_adv and clean_data operation
+def normalize2(normal, adv):
+    n_samples = len(normal)
+    total = scale(np.concatenate((normal, adv)))
+
+    return total[:n_samples], total[n_samples:]
+def get_uncertainties_and_densities2(model, X_train, Y_train, success_advs, clean_data, bandwidth=1.0, batch_size = 128):
+    print('Getting -uncertainty- Monte Carlo dropout variance predictions...')
+    uncerts_adv = get_mc_predictions(model, success_advs, batch_size=batch_size).var(axis=0).mean(axis=1)
+    uncerts_clean = get_mc_predictions(model, clean_data, batch_size=batch_size).var(axis=0).mean(axis=1)
+
+    print('Getting deep feature representations...')
+    X_train_features = get_deep_representations(model, X_train, batch_size=batch_size, last_hidden_layer = -2)
+    X_test_adv_features = get_deep_representations(model, success_advs, batch_size=batch_size, last_hidden_layer = -2)
+    X_test_clean_features = get_deep_representations(model, clean_data, batch_size=batch_size, last_hidden_layer = -2)
+
+    numClass = len(np.unique(Y_train))
+    print("--------------number of class label: ", numClass)
+    # Train one KDE per class
+    print('Training KDEs...')
+    class_inds = {}
+    for i in range(Y_train.shape[1]):
+        class_inds[i] = np.where(Y_train.argmax(axis=1) == i)[0]
+
+    kdes = {}
+    for i in range(Y_train.shape[1]):
+        kdes[i] = KernelDensity(kernel='gaussian',
+                                bandwidth=bandwidth) \
+            .fit(X_train_features[class_inds[i]])
+        
+
+    preds_test_adv = np.argmax(model.predict(success_advs), axis=1)
+    preds_test_clean = np.argmax(model.predict(clean_data), axis=1)
+
+    # Get density estimates
+    print('computing densities estimates...: data1', end='...  ')
+    densities_adv = score_samples(kdes, X_test_adv_features, preds_test_adv)
+    print('data2', end='...  ')
+    densities_clean = score_samples(kdes, X_test_clean_features, preds_test_clean)
+    print('done.')
+    ## Z-score the uncertainty and density values
+    uncerts_adv_z, uncerts_clean_z = \
+        normalize2(uncerts_adv,uncerts_clean)
+    densities_adv_z, densities_clean_z = \
+        normalize2(densities_adv,densities_clean)
+    
+    return uncerts_adv_z, uncerts_clean_z, densities_adv_z, densities_clean_z
+
+'''model architecture
+class NSLModel(torch.nn.Module):
+   def __init__(self):
+       super(NSLModel, self).__init__()
+       self.fc1 = torch.nn.Linear(121, 50)
+       self.fc2 = torch.nn.Linear(50, 2)
+
+   def forward(self, x):
+       x = torch.relu(self.fc1(x))
+       x = torch.softmax(self.fc2(x), dim=1)
+       return x
+   
+def create_nsl_model():
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(50, activation='relu', input_shape=(121,)),  # Input layer
+        tf.keras.layers.Dense(2, activation='softmax')  # Output layer
+    ])
+    return model
+
+
+#training for 20 epochs, 
+model = create_nsl_model()
+model.compile(loss='categorical_crossentropy',optimizer='adadelta',metrics=['accuracy'])
+model.fit( X_train, Y_train, epochs=args.epochs, batch_size=args.batch_size,
+        shuffle=True,
+        verbose=1,
+        validation_data=(X_test, Y_test)
+    )
+model.save('NSLKDD/Models/nsl_kdd_Dos2.h5') # epoch=20
+
+'''
