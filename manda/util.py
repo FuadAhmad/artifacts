@@ -491,7 +491,7 @@ def print_performance_metrics(lr, vals, labs):
 
     # Accuracy
     accuracy = metrics.accuracy_score(labs, y_pred)
-    print(f"Accuracy: {accuracy}")
+    print('Accuracy: %0.3f' % (100*accuracy)) #print(f"Accuracy: {accuracy}")
 
     # Precision
     precision = metrics.precision_score(labs, y_pred)
